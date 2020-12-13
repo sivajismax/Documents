@@ -1,0 +1,12 @@
+---
+- name: Download InfluxDB
+  when: influxdb_download
+  get_url:
+    url: "https://dl.influxdata.com/influxdb/releases/influxdb-{{ influxdb_version }}.x86_64.rpm"
+    dest: "{{ influxdb_dest }}"
+    mode: 0755
+
+- name: Install InfluxDB rpm from local file
+  yum:
+    name: "{{ influxdb_dest }}/{{ influxdb_filename }}"
+    state: present

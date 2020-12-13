@@ -1,0 +1,17 @@
+---
+# selinux tasks file for common
+
+- name: Ensure common packages are installed
+  yum:
+    name: [ policycoreutils-python, libsemanage-python, selinux-policy-targeted ]
+    state: present
+  tags: [ yum, selinux ]
+
+- name: Ensure SELINUX is enforcing
+  lineinfile: dest=/etc/selinux/config state=present regexp="SELINUX=.*" line="SELINUX=enforcing"
+  tags: selinux
+
+- name: Restore default SELinux security contexts
+  shell: restorecon -r -v /var/log && restorecon -r -v /etc/audit
+  tags: selinux
+

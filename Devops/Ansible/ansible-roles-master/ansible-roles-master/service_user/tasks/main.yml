@@ -1,0 +1,24 @@
+---
+# tasks for service_user
+
+- name: Create group
+  group:
+    name: "{{ service_user_group }}"
+
+- name: Create user
+  user:
+    name: "{{ service_user_name }}"
+    group: "{{ service_user_group }}"
+    shell: /sbin/nologin
+    home: "{{ service_user_home | default(omit) }}"
+    createhome: "{{ service_user_create_home }}"
+
+- name: Ensure user home directory exists with proper permissions
+  file:
+    path: "{{ service_user_home }}"
+    state: directory
+    owner: "{{ service_user_name }}"
+    group: "{{ service_user_group }}"
+    mode: "{{ service_user_home_permissions }}"
+  when: service_user_create_home
+

@@ -1,0 +1,105 @@
+---
+# tasks to create user accounts
+
+- name: create group for user
+  group: name="{{ item.username }}"
+  with_items: "{{ accounts_create_users }}"
+
+# Any user in the allowpass group is allowed to login with a password.
+# If you have a user that requires a password, add "allow_password: yes"
+# to their accounts entry in group_vars/.../accounts.
+- name: create allowpass group for users that can use passwords
+  group:
+    name: allowpass
+    state: present
+
+- name: allow password auth in sshd_config for pword group
+  blockinfile:
+    path: /etc/ssh/sshd_config
+    block: |
+      Match Group allowpass
+      PasswordAuthentication yes
+      Match User *
+  notify:
+    - restart sshd
+
+- name: create users
+  user: name="{{ item.username }}"
+        uid="{{ item.uid | default(omit) }}"
+        group="{{ item.username }}"
+        groups="{{ ( (["allowpass"] if (item.allow_password | default(False)) else [] ) + (item.groups | default([])) ) | join(',') }}"
+        shell="{{ item.shell if item.shell is defined else accounts_shell }}"
+        password="{{ item.password if item.password is defined else '!' }}"
+        update_password="on_create"
+        comment="{{ item.name | default(omit) }}"
+        home="{{item.home if item.home is defined else accounts_home_root+item.username}}"
+        createhome="{{ accounts_createhome }}"
+  with_items: "{{ accounts_create_users }}"
+
+- name: set user ssh key
+  authorized_key: user="{{ item.0.username }}" key="{{ item.1 }}"
+  when: item.1 is defined
+  with_subelements:
+    - "{{ accounts_create_users }}"
+    - ssh_key
+
+- name: add user to sudoers 
+  template: src=sudo_nopasswd dest="/etc/sudoers.d/{{ item.username }}" owner=root group=root mode=0644
+  when: item.admin == True
+  with_items: "{{ accounts_create_users }}"
+
+- name: remove user from sudoers
+  file: path="/etc/sudoers.d/{{ item.username }}" state=absent
+  when: item.admin == False
+  with_items: "{{ accounts_create_users }}"
+
+- name: add user to sshd_config AllowUsers if configured
+  replace:
+    backup: no
+    dest: /etc/ssh/sshd_config
+    regexp: '^(AllowUsers(?!.*\b{{ item.username }}\b).*)$'
+    replace: '\1 {{ item.username }}'
+  with_items: "{{ accounts_create_users }}"
+  notify:
+    - restart sshd
+
+- name: set user profile
+  template: src=profile dest="{{item.home if item.home is defined else accounts_home_root+item.username}}/.profile" owner="{{ item.username }}" group="{{ item.username }}"
+  with_items: "{{ accounts_create_users }}"
+  
+- name: set root profile
+  template: src=profile dest="/root/.profile"
+  with_items:
+    - root
+  tags: [root]
+
+- name: set user bashrc
+  template: src=bashrc dest="{{item.home if item.home is defined else accounts_home_root+item.username}}/.bashrc" owner="{{ item.username }}" group="{{ item.username }}"
+  with_items: "{{ accounts_create_users }}"
+  
+- name: set root bashrc
+  template: src=bashrc dest="/root/.bashrc"
+  with_items:
+    - root
+  tags: [root]
+
+- name: set user home permissions
+  file: path="{{item.home if item.home is defined else accounts_home_root+item.username}}" state=directory mode=0700 owner="{{ item.username }}" group="{{ item.username }}"
+  with_items: "{{ accounts_create_users }}"
+
+- name: set user ssh directory permissions
+  file: path="{{item.home if item.home is defined else accounts_home_root+item.username}}/.ssh" state=directory mode=0700 owner="{{ item.username }}" group="{{ item.username }}"
+  with_items: "{{ accounts_create_users }}"
+
+- name: Restore default SELinux security contexts on user home dir
+  shell: "restorecon -r {{ item.home if item.home is defined else accounts_home_root+item.username}}"
+  with_items: "{{ accounts_create_users }}"
+  when: selinux_enabled | default(true)
+  tags: [ selinux ]
+  changed_when: false
+  
+- name: Reset password inactive, mindays, and maxdays settings
+  shell: "chage -I {{ accounts_inactive_days }} -m {{ accounts_pass_min_days }} -M {{ accounts_pass_max_days }} -E {{ accounts_expire_date }} {{ item.username }}"
+  with_items: "{{ accounts_create_users }}"
+  tags: [ resetpassword ]
+  changed_when: false

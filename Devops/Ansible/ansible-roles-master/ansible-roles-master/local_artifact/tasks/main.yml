@@ -1,0 +1,22 @@
+---
+# tasks file for local_artifact
+
+- name: Ensure directory exists
+  file: path="{{ local_artifact_dest | dirname }}" state=directory mode=0755
+
+- name: "Upload local {{ local_artifact_src }} artifact to {{ local_artifact_dest }}"
+  copy:
+    src: "{{ local_artifact_src }}"
+    dest: "{{ local_artifact_dest }}"
+  when: local_artifact_srcglob is undefined
+  register: local_artifact_result
+
+- name: "Upload local {{ local_artifact_srcglob }} artifact(s) (glob) to {{ local_artifact_dest }}"
+  copy:
+    src: "{{ item }}"
+    dest: "{{ local_artifact_dest }}"
+  with_fileglob:
+    - "{{ local_artifact_srcglob | default('doesnotmatchanything') }}"
+  when: local_artifact_srcglob is defined
+  register: local_artifact_glob_result
+

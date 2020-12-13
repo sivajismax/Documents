@@ -1,0 +1,12 @@
+---
+- name: Download Grafana
+  when: grafana_download
+  get_url:
+    url: "https://s3-us-west-2.amazonaws.com/grafana-releases/release/grafana-{{ grafana_version }}-1.x86_64.rpm"
+    dest: "{{ grafana_dest }}"
+    mode: 0755
+
+- name: Install Grafana rpm from local file
+  yum:
+    name: "{{ grafana_dest }}/{{ grafana_filename }}"
+    state: present

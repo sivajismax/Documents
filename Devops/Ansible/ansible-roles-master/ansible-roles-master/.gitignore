@@ -1,0 +1,18 @@
+# Ansible
+*.retry
+.travis.yml
+ssh_config/
+
+# MacOS
+.DS_Store
+
+# General
+*~
+
+# Intellij
+.idea/
+*.iml
+
+*.swp
+
+

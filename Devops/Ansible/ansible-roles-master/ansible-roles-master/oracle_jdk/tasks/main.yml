@@ -1,0 +1,29 @@
+---
+- name: Upload Oracle JDK RPM
+  copy:
+    src: "{{ oracle_jdk_rpm_local_src }}"
+    dest: "{{ oracle_jdk_rpm_dest }}"
+  when: not oracle_jdk_skip_upload | default(false)
+  register: oracle_jdk_uploaded
+
+- name: Remove openjdk if present
+  yum:
+    name:
+      - java-*-openjdk
+      - java-*-openjdk-headless
+    state: absent
+  tags: yum
+
+- name: Install Oracle JDK via RPM
+  yum:
+    name: "{{ oracle_jdk_rpm_dest }}"
+    state: present
+  tags: [ install, yum ]
+
+- name: Ensure java profile.d script
+  template:
+    src: java.sh.j2
+    dest: /etc/profile.d/java.sh
+    mode: 0644
+  tags: config
+
